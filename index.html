@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PAdES Core Docs</title>
+    <meta name="description" content="Documentacao da biblioteca PAdES Core para assinatura digital PDF em PHP.">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <aside class="sidebar" data-sidebar>
+        <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <div>
+                <strong>PAdES Core</strong>
+                <small>PHP PDF Signatures</small>
+            </div>
+        </div>
+
+        <label class="search">
+            <span class="sr-only">Buscar na documentacao</span>
+            <input data-search type="search" placeholder="Buscar na documentacao">
+            <kbd>/</kbd>
+        </label>
+
+        <nav class="nav" aria-label="Documentacao">
+            <a class="nav-link active" href="#introducao">Introducao</a>
+            <a class="nav-link" href="#quick-start">Quick Start</a>
+            <a class="nav-link" href="#instalacao">Instalacao</a>
+            <a class="nav-link" href="#setup">Setup</a>
+
+            <p class="nav-group">Uso da API</p>
+            <a class="nav-link" href="#api-simples">API simples</a>
+            <a class="nav-link" href="#api-recomendada">API recomendada</a>
+            <a class="nav-link" href="#credenciais">Credenciais</a>
+            <a class="nav-link" href="#assinatura-visivel">Assinatura visivel</a>
+            <a class="nav-link" href="#timestamp">Timestamp TSA</a>
+
+            <p class="nav-group">Validacao</p>
+            <a class="nav-link" href="#perfis">Perfis PAdES</a>
+            <a class="nav-link" href="#validacao">Validacao</a>
+            <a class="nav-link" href="#seguranca">Seguranca</a>
+            <a class="nav-link" href="#escopo">Escopo atual</a>
+        </nav>
+    </aside>
+
+    <div class="shell">
+        <header class="topbar">
+            <button class="icon-button menu-button" type="button" data-menu aria-label="Abrir menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="tabs" aria-label="Areas da documentacao">
+                <a class="tab active" href="#introducao">Visualizar</a>
+                <a class="tab" href="#quick-start">Docs</a>
+            </div>
+            <div class="top-actions">
+                <a class="version" href="../composer.json">PHP 8.4+</a>
+                <a class="ghost-link" href="../README.md">README</a>
+            </div>
+        </header>
+
+        <main class="content" data-content>
+            <section class="doc-section intro" id="introducao" data-title="Introducao PAdES Core PHP PDF signatures">
+                <div class="eyebrow">Biblioteca PHP nativa</div>
+                <h1>PAdES Core</h1>
+                <p class="lead">
+                    Motor experimental para gerar e validar assinaturas digitais PDF compativeis com PAdES, com foco em CMS interno, atualizacao incremental e API publica simples para aplicacoes PHP.
+                </p>
+
+                <div class="badges" aria-label="Resumo do projeto">
+                    <span>Licenca <strong>MIT</strong></span>
+                    <span>Pacote <strong>nihillabs/pades-core</strong></span>
+                    <span>PHP <strong>8.4+</strong></span>
+                    <span>Status <strong>Experimental</strong></span>
+                </div>
+
+                <div class="summary-grid">
+                    <article>
+                        <h2>Assinatura PDF-first</h2>
+                        <p>Cria assinaturas PAdES diretamente em PDFs, preservando os bytes anteriores com incremental update.</p>
+                    </article>
+                    <article>
+                        <h2>CMS interno</h2>
+                        <p>Gera SignedData detached com SigningCertificateV2, ESSCertIDv2, certificados X.509 e compatibilidade OpenSSL.</p>
+                    </article>
+                    <article>
+                        <h2>API de aplicacao</h2>
+                        <p>Expoe `Pades::sign` para o caminho curto e `PadesSigner` para controle fino de credenciais, TSA e aparencia.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="doc-section" id="quick-start" data-title="Quick Start assinatura minima PFX P12">
+                <h2>Quick Start</h2>
+                <p>Instale o pacote, configure a senha do certificado fora do codigo e chame a API publica com os caminhos do PDF de entrada, PDF de saida e PFX/P12.</p>
+
+                <div class="steps">
+                    <article>
+                        <span>1</span>
+                        <h3>Instale</h3>
+                        <p>Adicione a biblioteca pelo Composer.</p>
+                    </article>
+                    <article>
+                        <span>2</span>
+                        <h3>Configure</h3>
+                        <p>Leia a senha do certificado por variavel de ambiente.</p>
+                    </article>
+                    <article>
+                        <span>3</span>
+                        <h3>Assine</h3>
+                        <p>Gere o PDF assinado em disco.</p>
+                    </article>
+                </div>
+
+                <pre><button class="copy" type="button">Copiar</button><code>composer require nihillabs/pades-core</code></pre>
+
+                <pre><button class="copy" type="button">Copiar</button><code>&lt;?php
+
+require __DIR__ . '/vendor/autoload.php';
+
+use NihilLabs\Pades\Pades;
+
+$password = getenv('PFX_PASSWORD');
+
+if (! is_string($password) || $password === '') {
+    throw new RuntimeException('PFX_PASSWORD nao configurada.');
+}
+
+Pades::sign(
+    inputPdf: __DIR__ . '/documento.pdf',
+    outputPdf: __DIR__ . '/documento-assinado.pdf',
+    certificatePath: __DIR__ . '/certificado.pfx',
+    certificatePassword: $password
+);</code></pre>
+            </section>
+
+            <section class="doc-section" id="instalacao" data-title="Instalacao Composer requisitos PHP OpenSSL">
+                <h2>Instalacao</h2>
+                <p>O pacote e uma biblioteca Composer com autoload PSR-4 no namespace `NihilLabs\Pades\`.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>composer require nihillabs/pades-core</code></pre>
+
+                <h3>Requisitos</h3>
+                <ul class="check-list">
+                    <li>PHP 8.4 ou superior.</li>
+                    <li>Extensao OpenSSL habilitada.</li>
+                    <li>Composer configurado no projeto consumidor.</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="setup" data-title="Setup variaveis ambiente certificado senha">
+                <h2>Setup</h2>
+                <p>Senhas e certificados reais devem ficar fora do repositorio e fora de diretorios publicos. A aplicacao deve receber ou localizar o PDF original, chamar a biblioteca e entregar o arquivo assinado ao usuario.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>export PFX_PASSWORD='sua-senha-do-pfx'
+export ICP_PFX_PASSWORD='sua-senha-do-certificado-icp-local'</code></pre>
+
+                <pre><button class="copy" type="button">Copiar</button><code>$password = getenv('PFX_PASSWORD');
+
+if (! is_string($password) || $password === '') {
+    throw new RuntimeException('PFX_PASSWORD nao configurada.');
+}</code></pre>
+            </section>
+
+            <section class="doc-section" id="api-simples" data-title="API simples Pades sign parametros retorno erros">
+                <h2>API simples: `Pades::sign`</h2>
+                <p>Use quando quiser o caminho mais curto com certificado PFX/P12. O metodo retorna `void` e grava o PDF assinado no caminho informado em `outputPdf`.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Pades;
+use NihilLabs\Pades\PadesSignatureOptions;
+
+Pades::sign(
+    inputPdf: '/tmp/documento.pdf',
+    outputPdf: '/tmp/documento-assinado.pdf',
+    certificatePath: '/secure/certificate.pfx',
+    certificatePassword: $password,
+    options: new PadesSignatureOptions(
+        visibleSignature: true,
+        appendSignaturePage: true,
+        signatureName: 'Nome do assinante',
+        signatureReason: 'Assinatura digital',
+        signatureLocation: 'Sistema interno',
+        signatureContactInfo: 'assinante@example.com'
+    )
+);</code></pre>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Parametro</th>
+                                <th>Uso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>`inputPdf`</td>
+                                <td>Caminho absoluto ou relativo do PDF original.</td>
+                            </tr>
+                            <tr>
+                                <td>`outputPdf`</td>
+                                <td>Caminho onde o PDF assinado sera escrito.</td>
+                            </tr>
+                            <tr>
+                                <td>`certificatePath`</td>
+                                <td>Caminho do arquivo PFX/P12.</td>
+                            </tr>
+                            <tr>
+                                <td>`certificatePassword`</td>
+                                <td>Senha do PFX/P12, preferencialmente vinda de ambiente ou vault.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="doc-section" id="api-recomendada" data-title="API recomendada PadesSigner provider algoritmo locks campo existente">
+                <h2>API recomendada: `PadesSigner`</h2>
+                <p>Use quando a aplicacao precisa controlar credencial, TSA, assinatura visivel, campo existente, algoritmo, locks ou provider de assinatura.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\PadesSignatureOptions;
+use NihilLabs\Pades\PadesSigner;
+use NihilLabs\Pades\Signing\PfxSignatureCredential;
+
+$credential = new PfxSignatureCredential(
+    pathOrCertificate: '/secure/certificate.pfx',
+    password: $password
+);
+
+(new PadesSigner())->sign(
+    inputPdf: '/tmp/documento.pdf',
+    outputPdf: '/tmp/documento-assinado.pdf',
+    credential: $credential,
+    options: new PadesSignatureOptions(
+        visibleSignature: true,
+        appendSignaturePage: true,
+        signatureName: 'Nome do assinante',
+        signatureReason: 'Assinatura digital'
+    )
+);</code></pre>
+            </section>
+
+            <section class="doc-section" id="credenciais" data-title="Credenciais PFX P12 PEM signer provider">
+                <h2>Credenciais</h2>
+                <p>A biblioteca suporta PFX/P12, PEM e providers desacoplados para HSM, PKCS#11, smartcard, cloud KMS, remote signing ou callback externo.</p>
+
+                <div class="split">
+                    <article>
+                        <h3>PFX/P12</h3>
+                        <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Signing\PfxSignatureCredential;
+
+$credential = new PfxSignatureCredential(
+    pathOrCertificate: '/secure/certificate.pfx',
+    password: $password
+);</code></pre>
+                    </article>
+                    <article>
+                        <h3>PEM</h3>
+                        <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Signing\PemSignatureCredential;
+
+$credential = PemSignatureCredential::fromFiles(
+    certificatePath: '/secure/certificate.pem',
+    privateKeyPath: '/secure/private-key.pem',
+    privateKeyPassword: $passwordOrNull
+);</code></pre>
+                    </article>
+                </div>
+            </section>
+
+            <section class="doc-section" id="assinatura-visivel" data-title="Assinatura visivel pagina final retangulo appearance">
+                <h2>Assinatura visivel</h2>
+                <p>O fluxo visual recomendado atualmente adiciona uma pagina final dedicada e posiciona um bloco de assinatura maior nessa pagina.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>new PadesSignatureOptions(
+    visibleSignature: true,
+    appendSignaturePage: true,
+    signatureName: 'Nome do assinante',
+    signatureReason: 'Assinatura digital',
+    signatureLocation: 'Sistema interno',
+    signatureContactInfo: 'assinante@example.com'
+);</code></pre>
+
+                <h3>Retangulo customizado</h3>
+                <pre><button class="copy" type="button">Copiar</button><code>new PadesSignatureOptions(
+    visibleSignature: true,
+    signatureRect: [48, 48, 547, 96],
+    signatureName: 'Nome do assinante'
+);</code></pre>
+            </section>
+
+            <section class="doc-section" id="timestamp" data-title="Timestamp TSA RFC 3161 PAdES B-T">
+                <h2>Timestamp TSA</h2>
+                <p>Informe um provider RFC 3161 quando quiser gerar assinatura com timestamp. Sem TSA, o fluxo e PAdES-B-B; com TSA, o fluxo esperado e PAdES-B-T.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Crypto\Timestamp\HttpTimestampClient;
+use NihilLabs\Pades\PadesSignatureOptions;
+
+$options = new PadesSignatureOptions(
+    timestampProvider: new HttpTimestampClient('https://freetsa.org/tsr')
+);</code></pre>
+
+                <p class="note">Para validacao oficial, use uma TSA confiavel para o validador alvo. FreeTSA serve para teste tecnico, mas pode ficar indeterminada em validadores oficiais.</p>
+            </section>
+
+            <section class="doc-section" id="perfis" data-title="Perfis PAdES B-B B-T LT LTA status">
+                <h2>Perfis PAdES</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Perfil</th>
+                                <th>Status documentado</th>
+                                <th>Observacao</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>PAdES-B-B</td>
+                                <td>Fluxo principal</td>
+                                <td>Perfil base atual do projeto.</td>
+                            </tr>
+                            <tr>
+                                <td>PAdES-B-T</td>
+                                <td>Experimental</td>
+                                <td>Depende de validacao completa de timestamp RFC 3161.</td>
+                            </tr>
+                            <tr>
+                                <td>PAdES-LT</td>
+                                <td>Experimental</td>
+                                <td>DSS/VRI e evidencias ainda precisam de validacao semantica robusta.</td>
+                            </tr>
+                            <tr>
+                                <td>PAdES-LTA</td>
+                                <td>Experimental</td>
+                                <td>Depende de LT maduro e archival timestamps.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="doc-section" id="validacao" data-title="Validacao testes phpunit interoperabilidade leitores">
+                <h2>Validacao</h2>
+                <p>Os testes automatizados cobrem assinatura PDF real, CMS interno, ByteRange, aparencia visivel, fonte nao embutida e validacao estrutural. Validadores como Adobe, DSS e leitores nativos ainda entram em fluxos manuais ou de interoperabilidade.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>vendor/bin/phpunit
+vendor/bin/phpunit --filter RealPdfSignerTest
+vendor/bin/phpunit --filter 'PdfSignatureAppearanceTest|PdfFontEmbeddingInspectorTest|RealPdfSignerTest'</code></pre>
+
+                <h3>Leitores manuais</h3>
+                <ul>
+                    <li>Adobe Acrobat e Adobe Reader.</li>
+                    <li>Google Chrome e Mozilla Firefox.</li>
+                    <li>Preview do Windows ou macOS quando aplicavel.</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="seguranca" data-title="Seguranca operacional certificados senhas temporarios">
+                <h2>Seguranca operacional</h2>
+                <ul class="check-list">
+                    <li>Nao envie senha de certificado pelo request HTTP.</li>
+                    <li>Nao grave senha no banco em texto puro.</li>
+                    <li>Proteja o PFX fora de diretorios publicos.</li>
+                    <li>Use arquivos temporarios fora de `public/`.</li>
+                    <li>Valide tamanho e tipo do PDF antes de assinar.</li>
+                    <li>Nao versione certificados ICP reais, chaves privadas reais, PDFs privados ou saidas de teste.</li>
+                </ul>
+            </section>
+
+            <section class="doc-section" id="escopo" data-title="Escopo atual suportado experimental pendencias">
+                <h2>Escopo atual</h2>
+                <p>O fluxo principal esperado recebe um PDF nao criptografado, aplica assinatura incremental, gera CMS/CAdES detached internamente, preenche `/ByteRange` e `/Contents`, inclui `SigningCertificateV2` e cria campo invisivel ou visivel.</p>
+
+                <div class="split">
+                    <article>
+                        <h3>Suportado no fluxo principal</h3>
+                        <ul>
+                            <li>PDF nao criptografado.</li>
+                            <li>Assinatura invisivel ou visivel.</li>
+                            <li>Pagina final dedicada quando configurada.</li>
+                            <li>Suporte a PFX/P12 e PEM.</li>
+                            <li>Validacao estrutural basica de ByteRange.</li>
+                        </ul>
+                    </article>
+                    <article>
+                        <h3>Ainda experimental</h3>
+                        <ul>
+                            <li>PAdES-B-T, PAdES-LT e PAdES-LTA.</li>
+                            <li>DSS, VRI, OCSP, CRL e trust store completo.</li>
+                            <li>PDFs criptografados ou com formularios complexos.</li>
+                            <li>Validacao completa de CMS/CAdES sem ferramenta externa.</li>
+                        </ul>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
