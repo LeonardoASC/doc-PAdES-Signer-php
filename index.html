@@ -130,6 +130,7 @@
 require __DIR__ . '/vendor/autoload.php';
 
 use NihilLabs\Pades\Certificate\PfxCertificateImporter;
+use NihilLabs\Pades\PadesSignatureOptions;
 use NihilLabs\Pades\PadesSigner;
 use NihilLabs\Pades\Signing\PfxSignatureCredential;
 
@@ -153,6 +154,12 @@ $metadata = (new PfxCertificateImporter())->inspectContents(
     credential: PfxSignatureCredential::fromContents(
         contents: $storedPfxContents,
         password: $passwordTypedWhenSigning
+    ),
+    options: new PadesSignatureOptions(
+        signatureName: 'Nome do assinante',
+        signatureReason: 'Assinatura digital',
+        signatureLocation: 'Sistema interno',
+        signatureContactInfo: 'assinante@example.com'
     )
 );</code></pre>
             </section>
@@ -248,7 +255,8 @@ $metadata = (new PfxCertificateImporter())->inspectContents(
                 <h2>Certificado salvo</h2>
                 <p>No momento da assinatura, solicite a senha novamente e crie a credencial a partir dos bytes armazenados. O PDF assinado continua sendo gravado no caminho `outputPdf`.</p>
 
-                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\PadesSigner;
+                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\PadesSignatureOptions;
+use NihilLabs\Pades\PadesSigner;
 use NihilLabs\Pades\Signing\PfxSignatureCredential;
 
 $credential = PfxSignatureCredential::fromContents(
@@ -259,17 +267,30 @@ $credential = PfxSignatureCredential::fromContents(
 (new PadesSigner())->sign(
     inputPdf: '/tmp/documento.pdf',
     outputPdf: '/tmp/documento-assinado.pdf',
-    credential: $credential
+    credential: $credential,
+    options: new PadesSignatureOptions(
+        signatureName: $signerName,
+        signatureReason: $reason,
+        signatureLocation: $location,
+        signatureContactInfo: $contactInfo
+    )
 );</code></pre>
 
                 <h3>Atalho estatico</h3>
                 <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Pades;
+use NihilLabs\Pades\PadesSignatureOptions;
 
 Pades::signWithPfxContents(
     inputPdf: '/tmp/documento.pdf',
     outputPdf: '/tmp/documento-assinado.pdf',
     certificateContents: $storedPfxContents,
-    certificatePassword: $passwordTypedWhenSigning
+    certificatePassword: $passwordTypedWhenSigning,
+    options: new PadesSignatureOptions(
+        signatureName: $signerName,
+        signatureReason: $reason,
+        signatureLocation: $location,
+        signatureContactInfo: $contactInfo
+    )
 );</code></pre>
             </section>
 
@@ -320,9 +341,14 @@ Pades::sign(
                                 <td>`certificatePassword`</td>
                                 <td>Senha do PFX/P12, recebida de forma efemera no momento da assinatura.</td>
                             </tr>
+                            <tr>
+                                <td>`options`</td>
+                                <td>Obrigatorio na API simples. Deve informar `signatureName`, `signatureReason`, `signatureLocation` e `signatureContactInfo`.</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
+                <p class="note">A biblioteca nao preenche metadados de assinatura com valores hardcoded. O sistema consumidor deve enviar os dados reais do assinante e do contexto da assinatura.</p>
             </section>
 
             <section class="doc-section" id="api-recomendada" data-title="API recomendada PadesSigner provider algoritmo locks campo existente">
@@ -346,7 +372,9 @@ $credential = new PfxSignatureCredential(
         visibleSignature: true,
         appendSignaturePage: true,
         signatureName: 'Nome do assinante',
-        signatureReason: 'Assinatura digital'
+        signatureReason: 'Assinatura digital',
+        signatureLocation: 'Sistema interno',
+        signatureContactInfo: 'assinante@example.com'
     )
 );</code></pre>
             </section>
@@ -413,6 +441,7 @@ $credential = PemSignatureCredential::fromFiles(
     signaturePageMediaBox: [0, 0, 595, 842],
     signaturePageRect: [48, 120, 547, 700]
 );</code></pre>
+                <p class="note">Para `Pades::sign` e `Pades::signWithPfxContents`, informe explicitamente `signatureName`, `signatureReason`, `signatureLocation` e `signatureContactInfo`. Esses campos aparecem no dicionario de assinatura do PDF e nao devem ser inventados pela biblioteca.</p>
             </section>
 
             <section class="doc-section" id="assinatura-visivel" data-title="Assinatura visivel pagina final retangulo appearance">
@@ -432,7 +461,10 @@ $credential = PemSignatureCredential::fromFiles(
                 <pre><button class="copy" type="button">Copiar</button><code>new PadesSignatureOptions(
     visibleSignature: true,
     signatureRect: [48, 48, 547, 96],
-    signatureName: 'Nome do assinante'
+    signatureName: 'Nome do assinante',
+    signatureReason: 'Assinatura digital',
+    signatureLocation: 'Sistema interno',
+    signatureContactInfo: 'assinante@example.com'
 );</code></pre>
             </section>
 
@@ -443,7 +475,9 @@ $credential = PemSignatureCredential::fromFiles(
                 <pre><button class="copy" type="button">Copiar</button><code>new PadesSignatureOptions(
     signatureFieldName: 'Section.Approval',
     signatureName: 'Nome do assinante',
-    signatureReason: 'Aprovado'
+    signatureReason: 'Aprovado',
+    signatureLocation: 'Sistema interno',
+    signatureContactInfo: 'assinante@example.com'
 );</code></pre>
 
                 <p>Se o campo nao existir ou ja estiver assinado, a biblioteca tenta criar um novo campo quando possivel.</p>
@@ -457,7 +491,11 @@ $credential = PemSignatureCredential::fromFiles(
     signatureType: PadesSignatureOptions::SIGNATURE_TYPE_CERTIFICATION,
     certificationPermission: 2,
     lockedFieldNames: ['Amount', 'Approval'],
-    fieldLockAction: PadesSignatureOptions::FIELD_LOCK_INCLUDE
+    fieldLockAction: PadesSignatureOptions::FIELD_LOCK_INCLUDE,
+    signatureName: 'Nome do assinante',
+    signatureReason: 'Assinatura digital',
+    signatureLocation: 'Sistema interno',
+    signatureContactInfo: 'assinante@example.com'
 );</code></pre>
 
                 <ul>
