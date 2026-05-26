@@ -34,10 +34,15 @@
             <a class="nav-link" href="#setup">Setup</a>
 
             <p class="nav-group">Uso da API</p>
+            <a class="nav-link" href="#importacao">Importacao de PFX</a>
+            <a class="nav-link" href="#certificado-salvo">Certificado salvo</a>
             <a class="nav-link" href="#api-simples">API simples</a>
             <a class="nav-link" href="#api-recomendada">API recomendada</a>
             <a class="nav-link" href="#credenciais">Credenciais</a>
+            <a class="nav-link" href="#opcoes">Opcoes</a>
             <a class="nav-link" href="#assinatura-visivel">Assinatura visivel</a>
+            <a class="nav-link" href="#campo-existente">Campo existente</a>
+            <a class="nav-link" href="#certificacao-locks">Certificacao e locks</a>
             <a class="nav-link" href="#timestamp">Timestamp TSA</a>
 
             <p class="nav-group">Validacao</p>
@@ -91,14 +96,14 @@
                     </article>
                     <article>
                         <h2>API de aplicacao</h2>
-                        <p>Expoe `Pades::sign` para o caminho curto e `PadesSigner` para controle fino de credenciais, TSA e aparencia.</p>
+                        <p>Expoe importacao de PFX, assinatura com certificado salvo, `Pades::sign` e `PadesSigner` para controle fino.</p>
                     </article>
                 </div>
             </section>
 
-            <section class="doc-section" id="quick-start" data-title="Quick Start assinatura minima PFX P12">
+            <section class="doc-section" id="quick-start" data-title="Quick Start importacao PFX P12 certificado salvo assinatura">
                 <h2>Quick Start</h2>
-                <p>Instale o pacote, configure a senha do certificado fora do codigo e chame a API publica com os caminhos do PDF de entrada, PDF de saida e PFX/P12.</p>
+                <p>Instale o pacote, importe o PFX/P12 enviado pelo usuario, salve o conteudo do certificado sem a senha e solicite a senha novamente quando for assinar.</p>
 
                 <div class="steps">
                     <article>
@@ -108,13 +113,13 @@
                     </article>
                     <article>
                         <span>2</span>
-                        <h3>Configure</h3>
-                        <p>Leia a senha do certificado por variavel de ambiente.</p>
+                        <h3>Importe</h3>
+                        <p>Valide o PFX/P12 e extraia metadados com a senha digitada no momento.</p>
                     </article>
                     <article>
                         <span>3</span>
                         <h3>Assine</h3>
-                        <p>Gere o PDF assinado em disco.</p>
+                        <p>Use o certificado salvo e a senha digitada novamente para gerar o PDF assinado.</p>
                     </article>
                 </div>
 
@@ -124,19 +129,31 @@
 
 require __DIR__ . '/vendor/autoload.php';
 
-use NihilLabs\Pades\Pades;
+use NihilLabs\Pades\Certificate\PfxCertificateImporter;
+use NihilLabs\Pades\PadesSigner;
+use NihilLabs\Pades\Signing\PfxSignatureCredential;
 
-$password = getenv('PFX_PASSWORD');
+$pfxContents = file_get_contents($_FILES['certificate']['tmp_name']);
 
-if (! is_string($password) || $password === '') {
-    throw new RuntimeException('PFX_PASSWORD nao configurada.');
+if ($pfxContents === false) {
+    throw new RuntimeException('Nao foi possivel ler o certificado enviado.');
 }
 
-Pades::sign(
+$metadata = (new PfxCertificateImporter())->inspectContents(
+    contents: $pfxContents,
+    password: $passwordTypedOnImport
+);
+
+// Salve $pfxContents e os metadados necessarios.
+// Nao salve a senha.
+
+(new PadesSigner())->sign(
     inputPdf: __DIR__ . '/documento.pdf',
     outputPdf: __DIR__ . '/documento-assinado.pdf',
-    certificatePath: __DIR__ . '/certificado.pfx',
-    certificatePassword: $password
+    credential: PfxSignatureCredential::fromContents(
+        contents: $storedPfxContents,
+        password: $passwordTypedWhenSigning
+    )
 );</code></pre>
             </section>
 
@@ -154,23 +171,111 @@ Pades::sign(
                 </ul>
             </section>
 
-            <section class="doc-section" id="setup" data-title="Setup variaveis ambiente certificado senha">
+            <section class="doc-section" id="setup" data-title="Setup certificado senha ambiente upload banco storage">
                 <h2>Setup</h2>
                 <p>Senhas e certificados reais devem ficar fora do repositorio e fora de diretorios publicos. A aplicacao deve receber ou localizar o PDF original, chamar a biblioteca e entregar o arquivo assinado ao usuario.</p>
+                <p>A biblioteca nao exige `.env`. Variaveis de ambiente sao apenas uma opcao para desenvolvimento local; em um sistema com certificado importado pelo usuario, solicite a senha no momento da importacao e novamente no momento da assinatura.</p>
 
                 <pre><button class="copy" type="button">Copiar</button><code>export PFX_PASSWORD='sua-senha-do-pfx'
 export ICP_PFX_PASSWORD='sua-senha-do-certificado-icp-local'</code></pre>
 
-                <pre><button class="copy" type="button">Copiar</button><code>$password = getenv('PFX_PASSWORD');
+                <pre><button class="copy" type="button">Copiar</button><code>$passwordTypedWhenSigning = $request->input('certificate_password');
 
-if (! is_string($password) || $password === '') {
-    throw new RuntimeException('PFX_PASSWORD nao configurada.');
+if (! is_string($passwordTypedWhenSigning) || $passwordTypedWhenSigning === '') {
+    throw new RuntimeException('Senha do certificado nao informada.');
 }</code></pre>
+
+                <p class="note">Para producao, trate a senha como dado efemero: use somente durante a chamada, nao persista, nao registre em logs e nao coloque em query string.</p>
+            </section>
+
+            <section class="doc-section" id="importacao" data-title="Importacao PFX P12 usuario metadados senha assinatura banco storage">
+                <h2>Importacao de PFX</h2>
+                <p>Quando o usuario envia o certificado, use a senha apenas para validar o PFX/P12 e extrair metadados. Salve o conteudo do certificado em banco ou storage seguro e nao salve a senha.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Certificate\PfxCertificateImporter;
+
+$pfxContents = file_get_contents($_FILES['certificate']['tmp_name']);
+
+if ($pfxContents === false) {
+    throw new RuntimeException('Nao foi possivel ler o certificado enviado.');
+}
+
+$metadata = (new PfxCertificateImporter())->inspectContents(
+    contents: $pfxContents,
+    password: $passwordTypedOnImport
+);
+
+// Salve $pfxContents em banco/storage seguro.
+// Salve metadados como commonName, serialNumberHex, validFrom e validTo.
+// Nao salve a senha do certificado.</code></pre>
+
+                <h3>Metadados retornados</h3>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Campo</th>
+                                <th>Uso comum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>`commonName`</td>
+                                <td>Nome exibido para o usuario identificar o certificado.</td>
+                            </tr>
+                            <tr>
+                                <td>`serialNumberHex`</td>
+                                <td>Identificador tecnico para auditoria e conferencia.</td>
+                            </tr>
+                            <tr>
+                                <td>`subject` / `issuer`</td>
+                                <td>Dados do titular e da autoridade emissora.</td>
+                            </tr>
+                            <tr>
+                                <td>`validFrom` / `validTo`</td>
+                                <td>Janela de validade para avisos antes da assinatura.</td>
+                            </tr>
+                            <tr>
+                                <td>`certificatePem` / `certificateChainPem`</td>
+                                <td>Material publico do certificado e cadeia.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="doc-section" id="certificado-salvo" data-title="Assinar certificado salvo banco bytes PfxSignatureCredential fromContents signWithPfxContents">
+                <h2>Certificado salvo</h2>
+                <p>No momento da assinatura, solicite a senha novamente e crie a credencial a partir dos bytes armazenados. O PDF assinado continua sendo gravado no caminho `outputPdf`.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\PadesSigner;
+use NihilLabs\Pades\Signing\PfxSignatureCredential;
+
+$credential = PfxSignatureCredential::fromContents(
+    contents: $storedPfxContents,
+    password: $passwordTypedWhenSigning
+);
+
+(new PadesSigner())->sign(
+    inputPdf: '/tmp/documento.pdf',
+    outputPdf: '/tmp/documento-assinado.pdf',
+    credential: $credential
+);</code></pre>
+
+                <h3>Atalho estatico</h3>
+                <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Pades;
+
+Pades::signWithPfxContents(
+    inputPdf: '/tmp/documento.pdf',
+    outputPdf: '/tmp/documento-assinado.pdf',
+    certificateContents: $storedPfxContents,
+    certificatePassword: $passwordTypedWhenSigning
+);</code></pre>
             </section>
 
             <section class="doc-section" id="api-simples" data-title="API simples Pades sign parametros retorno erros">
                 <h2>API simples: `Pades::sign`</h2>
-                <p>Use quando quiser o caminho mais curto com certificado PFX/P12. O metodo retorna `void` e grava o PDF assinado no caminho informado em `outputPdf`.</p>
+                <p>Use quando o certificado PFX/P12 estiver disponivel como arquivo. Para certificados salvos em banco/storage, prefira `Pades::signWithPfxContents` ou `PfxSignatureCredential::fromContents`.</p>
 
                 <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Pades;
 use NihilLabs\Pades\PadesSignatureOptions;
@@ -213,7 +318,7 @@ Pades::sign(
                             </tr>
                             <tr>
                                 <td>`certificatePassword`</td>
-                                <td>Senha do PFX/P12, preferencialmente vinda de ambiente ou vault.</td>
+                                <td>Senha do PFX/P12, recebida de forma efemera no momento da assinatura.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -252,12 +357,21 @@ $credential = new PfxSignatureCredential(
 
                 <div class="split">
                     <article>
-                        <h3>PFX/P12</h3>
+                        <h3>PFX/P12 em arquivo</h3>
                         <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Signing\PfxSignatureCredential;
 
 $credential = new PfxSignatureCredential(
     pathOrCertificate: '/secure/certificate.pfx',
     password: $password
+);</code></pre>
+                    </article>
+                    <article>
+                        <h3>PFX/P12 em bytes</h3>
+                        <pre><button class="copy" type="button">Copiar</button><code>use NihilLabs\Pades\Signing\PfxSignatureCredential;
+
+$credential = PfxSignatureCredential::fromContents(
+    contents: $storedPfxContents,
+    password: $passwordTypedWhenSigning
 );</code></pre>
                     </article>
                     <article>
@@ -271,6 +385,34 @@ $credential = PemSignatureCredential::fromFiles(
 );</code></pre>
                     </article>
                 </div>
+            </section>
+
+            <section class="doc-section" id="opcoes" data-title="PadesSignatureOptions opcoes principais timestamp assinatura visivel algoritmo locks">
+                <h2>Opcoes</h2>
+                <p>`PadesSignatureOptions` concentra o comportamento da assinatura: TSA, assinatura visivel, pagina final, campo existente, locks, tipo de assinatura e algoritmos.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>new PadesSignatureOptions(
+    timestampProvider: null,
+    visibleSignature: false,
+    signatureRect: [48, 48, 547, 96],
+    signatureFlags: 132,
+    signatureName: 'PAdES Core',
+    signatureReason: 'Document signed digitally',
+    signatureLocation: null,
+    signatureContactInfo: null,
+    signatureFieldName: null,
+    signatureType: PadesSignatureOptions::SIGNATURE_TYPE_APPROVAL,
+    certificationPermission: 2,
+    lockedFieldNames: [],
+    fieldLockAction: PadesSignatureOptions::FIELD_LOCK_INCLUDE,
+    hashAlgorithm: 'sha256',
+    signatureAlgorithm: 'rsa',
+    minimumHashAlgorithm: 'sha256',
+    includeSigningTime: false,
+    appendSignaturePage: false,
+    signaturePageMediaBox: [0, 0, 595, 842],
+    signaturePageRect: [48, 120, 547, 700]
+);</code></pre>
             </section>
 
             <section class="doc-section" id="assinatura-visivel" data-title="Assinatura visivel pagina final retangulo appearance">
@@ -292,6 +434,36 @@ $credential = PemSignatureCredential::fromFiles(
     signatureRect: [48, 48, 547, 96],
     signatureName: 'Nome do assinante'
 );</code></pre>
+            </section>
+
+            <section class="doc-section" id="campo-existente" data-title="Assinar campo existente AcroForm signatureFieldName Seed Value Dictionary Lock">
+                <h2>Campo existente</h2>
+                <p>Use `signatureFieldName` para assinar um campo `/FT /Sig` vazio ja existente no PDF. A biblioteca suporta nome totalmente qualificado em AcroForm hierarquico e respeita Seed Value Dictionary e `/Lock` quando presentes.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>new PadesSignatureOptions(
+    signatureFieldName: 'Section.Approval',
+    signatureName: 'Nome do assinante',
+    signatureReason: 'Aprovado'
+);</code></pre>
+
+                <p>Se o campo nao existir ou ja estiver assinado, a biblioteca tenta criar um novo campo quando possivel.</p>
+            </section>
+
+            <section class="doc-section" id="certificacao-locks" data-title="Assinatura certificacao DocMDP FieldMDP locks campos">
+                <h2>Certificacao e locks</h2>
+                <p>Configure assinatura de certificacao e travamento de campos quando o PDF precisar restringir alteracoes posteriores.</p>
+
+                <pre><button class="copy" type="button">Copiar</button><code>new PadesSignatureOptions(
+    signatureType: PadesSignatureOptions::SIGNATURE_TYPE_CERTIFICATION,
+    certificationPermission: 2,
+    lockedFieldNames: ['Amount', 'Approval'],
+    fieldLockAction: PadesSignatureOptions::FIELD_LOCK_INCLUDE
+);</code></pre>
+
+                <ul>
+                    <li>Adiciona DocMDP quando `signatureType` e `certification`.</li>
+                    <li>Adiciona FieldMDP quando `lockedFieldNames` ou lock do campo exigirem.</li>
+                </ul>
             </section>
 
             <section class="doc-section" id="timestamp" data-title="Timestamp TSA RFC 3161 PAdES B-T">
@@ -364,7 +536,8 @@ vendor/bin/phpunit --filter 'PdfSignatureAppearanceTest|PdfFontEmbeddingInspecto
             <section class="doc-section" id="seguranca" data-title="Seguranca operacional certificados senhas temporarios">
                 <h2>Seguranca operacional</h2>
                 <ul class="check-list">
-                    <li>Nao envie senha de certificado pelo request HTTP.</li>
+                    <li>Nao persista senha de certificado em banco, `.env`, log ou arquivo temporario.</li>
+                    <li>Use a senha apenas durante importacao ou assinatura e descarte depois da chamada.</li>
                     <li>Nao grave senha no banco em texto puro.</li>
                     <li>Proteja o PFX fora de diretorios publicos.</li>
                     <li>Use arquivos temporarios fora de `public/`.</li>
